@@ -1,10 +1,20 @@
 package com.todo.todo_list_backend.model;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
+@Schema(name = "Task", description = "Modelo de tarea asociada a un usuario")
 public class Task {
 
+    @Schema(description = "Identificador único de la tarea", example = "1", accessMode = Schema.AccessMode.READ_ONLY)
     private Long id;
+
+    @Schema(description = "Identificador del usuario dueño de la tarea", example = "10")
     private Long userId;
+
+    @Schema(description = "Descripción corta de la tarea", example = "Estudiar para la evaluación")
     private String description;
+
+    @Schema(description = "Indica si la tarea está completada", example = "false")
     private boolean completed;
 
     public Task() {}

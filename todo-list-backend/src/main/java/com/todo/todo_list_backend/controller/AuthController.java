@@ -1,13 +1,20 @@
 package com.todo.todo_list_backend.controller;
 
 import com.todo.todo_list_backend.model.User;
-
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 
+@Tag(name = "Autenticación", description = "Servicios de registro e inicio de sesión")
 @RestController
 @RequestMapping("/api/auth")
 @CrossOrigin(origins = "http://localhost:5500") // ajusta puerto del front
@@ -16,47 +23,116 @@ public class AuthController {
     private final Map<String, User> usersByEmail = new HashMap<>();
     private final AtomicLong idGenerator = new AtomicLong(1);
 
-    // Registro
+    @Operation(
+            summary = "Registro de usuario",
+            description = "Registra un usuario en memoria si el correo no existe y retorna un token de sesión (demo)."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Usuario registrado correctamente"),
+            @ApiResponse(responseCode = "400", description = "El correo ya está registrado o el body es inválido")
+    })
     @PostMapping("/register")
-    public ResponseEntity<?> register(@RequestBody User request) {
-        if (usersByEmail.containsKey(request.getEmail())) {
+    public ResponseEntity<?> register(@RequestBody RegisterRequest request) {
+        if (request == null || request.email == null || request.email.isBlank()) {
             return ResponseEntity
                     .badRequest()
-                    .body(Map.of("message", "El correo ya está registrado"));
+                    .body(new ErrorResponse("El email es obligatorio"));
+        }
+
+        if (usersByEmail.containsKey(request.email)) {
+            return ResponseEntity
+                    .badRequest()
+                    .body(new ErrorResponse("El correo ya está registrado"));
         }
 
         Long id = idGenerator.getAndIncrement();
-        User user = new User(id, request.getName(), request.getEmail(), request.getPassword());
+        User user = new User(id, request.name, request.email, request.password);
         usersByEmail.put(user.getEmail(), user);
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("id", user.getId());
-        response.put("name", user.getName());
-        response.put("email", user.getEmail());
-        response.put("token", UUID.randomUUID().toString());
+        AuthResponse response = new AuthResponse(
+                user.getId(),
+                user.getName(),
+                user.getEmail(),
+                UUID.randomUUID().toString()
+        );
 
         return ResponseEntity.ok(response);
     }
 
-    // Login
+    @Operation(
+            summary = "Login de usuario",
+            description = "Valida credenciales contra usuarios en memoria y retorna un token (demo)."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Login correcto"),
+            @ApiResponse(responseCode = "401", description = "Credenciales inválidas")
+    })
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody Map<String, String> request) {
-        String email = request.get("email");
-        String password = request.get("password");
+    public ResponseEntity<?> login(@RequestBody LoginRequest request) {
+        String email = (request == null) ? null : request.email;
+        String password = (request == null) ? null : request.password;
 
         User user = usersByEmail.get(email);
-        if (user == null || !user.getPassword().equals(password)) {
+        if (user == null || password == null || !user.getPassword().equals(password)) {
             return ResponseEntity
                     .status(401)
-                    .body(Map.of("message", "Credenciales inválidas"));
+                    .body(new ErrorResponse("Credenciales inválidas"));
         }
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("id", user.getId());
-        response.put("name", user.getName());
-        response.put("email", user.getEmail());
-        response.put("token", UUID.randomUUID().toString());
+        AuthResponse response = new AuthResponse(
+                user.getId(),
+                user.getName(),
+                user.getEmail(),
+                UUID.randomUUID().toString()
+        );
 
         return ResponseEntity.ok(response);
+    }
+
+    // ===== DTOs para documentar Request/Response en Swagger =====
+
+    @Schema(name = "RegisterRequest", description = "Datos para registrar un usuario")
+    public static class RegisterRequest {
+        @Schema(example = "Juan Pérez")
+        public String name;
+
+        @Schema(example = "juan@email.com")
+        public String email;
+
+        @Schema(example = "123456")
+        public String password;
+    }
+
+    @Schema(name = "LoginRequest", description = "Datos para iniciar sesión")
+    public static class LoginRequest {
+        @Schema(example = "juan@email.com")
+        public String email;
+
+        @Schema(example = "123456")
+        public String password;
+    }
+
+    @Schema(name = "AuthResponse", description = "Respuesta de autenticación")
+    public static class AuthResponse {
+        public Long id;
+        public String name;
+        public String email;
+        public String token;
+
+        public AuthResponse(Long id, String name, String email, String token) {
+            this.id = id;
+            this.name = name;
+            this.email = email;
+            this.token = token;
+        }
+    }
+
+    @Schema(name = "ErrorResponse", description = "Respuesta de error estándar")
+    public static class ErrorResponse {
+        public String message;
+
+        public ErrorResponse(String message) {
+            this.message = message;
+        }
     }
 }

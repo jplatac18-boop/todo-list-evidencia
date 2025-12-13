@@ -1,11 +1,28 @@
 package com.todo.todo_list_backend.model;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 
+@Schema(name = "User", description = "Modelo de usuario (almacenado en memoria para la demo)")
 public class User {
 
-    private Long id;        // por ahora simulado en memoria
+    @Schema(
+            description = "Identificador único del usuario",
+            example = "1",
+            accessMode = Schema.AccessMode.READ_ONLY
+    )
+    private Long id; // por ahora simulado en memoria
+
+    @Schema(description = "Nombre completo del usuario", example = "Juan Pérez")
     private String name;
+
+    @Schema(description = "Correo del usuario", example = "juan@email.com")
     private String email;
+
+    @Schema(
+            description = "Contraseña del usuario (solo se envía en requests)",
+            example = "123456",
+            accessMode = Schema.AccessMode.WRITE_ONLY
+    )
     private String password;
 
     public User() {}
