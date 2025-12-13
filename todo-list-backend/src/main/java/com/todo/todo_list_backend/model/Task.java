@@ -3,14 +3,15 @@ package com.todo.todo_list_backend.model;
 public class Task {
 
     private Long id;
+    private Long userId;
     private String description;
-    private Boolean completed;
+    private boolean completed;
 
-    public Task() {
-    }
+    public Task() {}
 
-    public Task(Long id, String description, Boolean completed) {
+    public Task(Long id, Long userId, String description, boolean completed) {
         this.id = id;
+        this.userId = userId;
         this.description = description;
         this.completed = completed;
     }
@@ -23,16 +24,20 @@ public class Task {
         this.id = id;
     }
 
+    public Long getUserId() {
+        return userId;
+    }
+
+    public void setUserId(Long userId) {
+        this.userId = userId;
+    }
+
     public String getDescription() {
         return description;
     }
 
     public void setDescription(String description) {
-        if (description != null && description.length() > 200) {
-            this.description = description.substring(0, 200);
-        } else {
-            this.description = description;
-        }
+        this.description = description;
     }
 
     public boolean isCompleted() {
