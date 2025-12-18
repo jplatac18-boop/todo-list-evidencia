@@ -1,5 +1,6 @@
 package com.todo.todo_list_backend.controller;
 
+import com.todo.todo_list_backend.model.UserRepository;
 import com.todo.todo_list_backend.model.User;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -9,10 +10,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicLong;
 
 @Tag(name = "Autenticación", description = "Servicios de registro e inicio de sesión")
 @RestController
@@ -20,12 +19,15 @@ import java.util.concurrent.atomic.AtomicLong;
 @CrossOrigin(origins = "http://localhost:5500") // ajusta puerto del front
 public class AuthController {
 
-    private final Map<String, User> usersByEmail = new HashMap<>();
-    private final AtomicLong idGenerator = new AtomicLong(1);
+    private final UserRepository userRepository;
+
+    public AuthController(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
 
     @Operation(
             summary = "Registro de usuario",
-            description = "Registra un usuario en memoria si el correo no existe y retorna un token de sesión (demo)."
+            description = "Registra un usuario en MongoDB si el correo no existe y retorna un token de sesión (demo)."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Usuario registrado correctamente"),
@@ -39,20 +41,20 @@ public class AuthController {
                     .body(new ErrorResponse("El email es obligatorio"));
         }
 
-        if (usersByEmail.containsKey(request.email)) {
+        Optional<User> existing = userRepository.findByEmail(request.email);
+        if (existing.isPresent()) {
             return ResponseEntity
                     .badRequest()
                     .body(new ErrorResponse("El correo ya está registrado"));
         }
 
-        Long id = idGenerator.getAndIncrement();
-        User user = new User(id, request.name, request.email, request.password);
-        usersByEmail.put(user.getEmail(), user);
+        User user = new User(request.name, request.email, request.password);
+        User saved = userRepository.save(user);
 
         AuthResponse response = new AuthResponse(
-                user.getId(),
-                user.getName(),
-                user.getEmail(),
+                saved.getId(),
+                saved.getName(),
+                saved.getEmail(),
                 UUID.randomUUID().toString()
         );
 
@@ -61,7 +63,7 @@ public class AuthController {
 
     @Operation(
             summary = "Login de usuario",
-            description = "Valida credenciales contra usuarios en memoria y retorna un token (demo)."
+            description = "Valida credenciales contra usuarios almacenados en MongoDB y retorna un token (demo)."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Login correcto"),
@@ -72,12 +74,14 @@ public class AuthController {
         String email = (request == null) ? null : request.email;
         String password = (request == null) ? null : request.password;
 
-        User user = usersByEmail.get(email);
-        if (user == null || password == null || !user.getPassword().equals(password)) {
+        Optional<User> optUser = (email == null) ? Optional.empty() : userRepository.findByEmail(email);
+        if (optUser.isEmpty() || password == null || !optUser.get().getPassword().equals(password)) {
             return ResponseEntity
                     .status(401)
                     .body(new ErrorResponse("Credenciales inválidas"));
         }
+
+        User user = optUser.get();
 
         AuthResponse response = new AuthResponse(
                 user.getId(),
@@ -114,12 +118,12 @@ public class AuthController {
 
     @Schema(name = "AuthResponse", description = "Respuesta de autenticación")
     public static class AuthResponse {
-        public Long id;
+        public String id;
         public String name;
         public String email;
         public String token;
 
-        public AuthResponse(Long id, String name, String email, String token) {
+        public AuthResponse(String id, String name, String email, String token) {
             this.id = id;
             this.name = name;
             this.email = email;
